@@ -1,0 +1,36 @@
+{
+  "vertical": "clinic",
+  "business_name": "Ringback Family Clinic",
+  "timezone": "America/New_York",
+  "business_hours": {
+    "mon": ["09:00", "17:00"],
+    "tue": ["09:00", "17:00"],
+    "wed": ["09:00", "17:00"],
+    "thu": ["09:00", "17:00"],
+    "fri": ["09:00", "16:00"],
+    "sat": [],
+    "sun": []
+  },
+  "services": [
+    {"id": "new_patient", "name": "new patient visit", "aliases": ["new patient", "first visit", "new appointment"], "duration_min": 40, "price": "billed to insurance"},
+    {"id": "follow_up", "name": "follow-up visit", "aliases": ["follow up", "follow-up", "checkup", "check up"], "duration_min": 20, "price": "billed to insurance"},
+    {"id": "physical", "name": "annual physical", "aliases": ["physical", "annual", "wellness"], "duration_min": 40, "price": "billed to insurance"},
+    {"id": "vaccination", "name": "vaccination", "aliases": ["vaccine", "shot", "flu shot", "immunization"], "duration_min": 15, "price": "billed to insurance"}
+  ],
+  "faqs": [
+    {"id": "hours", "patterns": ["hours", "open", "close", "what time"], "answer": "Our clinic is open Monday to Thursday 9am to 5pm, and Friday 9am to 4pm."},
+    {"id": "insurance", "patterns": ["insurance", "accept", "coverage", "in network", "in-network"], "answer": "We accept most major insurance plans. Bring your insurance card to your visit and we'll verify coverage."},
+    {"id": "location", "patterns": ["where", "location", "address", "parking", "directions"], "answer": "We're located downtown with free patient parking. I can text you directions after we book."},
+    {"id": "records", "patterns": ["records", "results", "prescription", "refill"], "answer": "For medical records, test results, or prescription refills I'll connect you with our front desk, since those need staff verification."}
+  ],
+  "booking_fields": ["service", "contact_name", "contact_phone"],
+  "qualification_fields": ["service", "urgency", "contact_name", "contact_phone"],
+  "escalation": {
+    "keywords": ["chest pain", "can't breathe", "cannot breathe", "bleeding", "emergency", "suicidal", "overdose", "911", "prescription", "refill", "test result", "results", "billing dispute", "complaint"],
+    "transfer_number": "+1-555-0111",
+    "callback_prompt": "I'll have front-desk staff call you back. What's the best number and time?"
+  },
+  "out_of_scope_examples": ["weather", "stock", "stocks", "sports", "joke", "recipe", "news", "president", "capital of", "translate", "poem"],
+  "confirmation_script": "Just to confirm: {service} for {contact_name} on {slot}. Shall I book that?",
+  "greeting": "Thank you for calling {business_name}. I can book, reschedule, or cancel an appointment, or answer general questions. How can I help?"
+}

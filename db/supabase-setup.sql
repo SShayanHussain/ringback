@@ -1,0 +1,12 @@
+-- Supabase / managed-Postgres manual setup (escape hatch, PLAYBOOK §2).
+--
+-- 1) Apply the schema on the SESSION/direct connection (:5432), NOT the transaction pooler (:6543):
+--       psql "postgresql://postgres:...@db.<ref>.supabase.co:5432/postgres" -f db/schema.sql
+--    (The app RUNTIME uses the transaction pooler :6543 with prepared statements OFF.)
+--
+-- 2) Data-retention job (PII rule): prune transcripts older than TRANSCRIPT_RETENTION_DAYS.
+--    Run on a schedule (pg_cron on Supabase, or an n8n cron hitting a maintenance endpoint):
+--
+--    DELETE FROM calls WHERE created_at < now() - interval '90 days';
+--
+-- 3) There are no extensions to create for the text core (no pgvector needed here).

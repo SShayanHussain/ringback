@@ -1,0 +1,82 @@
+# Local dev stack — free, no voice spend.
+# postgres + redis + agent-core (the brain) + orchestrator (API) + web.
+# voice/ is intentionally absent — added only in Phase 5, after text evals are green.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ringback
+      POSTGRES_PASSWORD: ringback
+      POSTGRES_DB: ringback
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/00-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ringback -d ringback"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  agent-core:
+    build: ./agent
+    environment:
+      VERTICAL: ${VERTICAL:-home-services}
+      LLM_PROVIDER: ${LLM_PROVIDER:-rulebased}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      LLM_MODEL_TURN: ${LLM_MODEL_TURN:-}
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  orchestrator:
+    build: ./orchestrator
+    environment:
+      DATABASE_URL: postgresql://ringback:ringback@postgres:5432/ringback
+      REDIS_URL: redis://redis:6379
+      AGENT_CORE_URL: http://agent-core:8001
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}
+      CREDENTIALS_ENC_KEY: ${CREDENTIALS_ENC_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      agent-core:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    environment:
+      # Server-side (Server Actions / Server Components) talks to the orchestrator by service name.
+      ORCHESTRATOR_URL: http://orchestrator:8000
+      NEXT_PUBLIC_APP_URL: ${APP_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - orchestrator
+
+volumes:
+  pgdata:

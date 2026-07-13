@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ringback-agent"
+version = "0.1.0"
+description = "Ringback text-first conversation core (channel-independent brain)."
+requires-python = ">=3.11"
+# Core LOGIC (agent, rule-based NLU, mock tools, guardrails) is pure stdlib and imports with none
+# of these. These are only needed to run the HTTP service and the optional real LLM providers.
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2.6",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.4"]
+
+[tool.setuptools.packages.find]
+include = ["ringback_agent*", "evals*"]
+
+[tool.setuptools.package-data]
+ringback_agent = ["verticals/*.json"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

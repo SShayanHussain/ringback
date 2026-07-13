@@ -1,0 +1,39 @@
+{
+  "vertical": "home-services",
+  "business_name": "Ringback Home Services",
+  "timezone": "America/New_York",
+  "business_hours": {
+    "mon": ["08:00", "18:00"],
+    "tue": ["08:00", "18:00"],
+    "wed": ["08:00", "18:00"],
+    "thu": ["08:00", "18:00"],
+    "fri": ["08:00", "18:00"],
+    "sat": ["09:00", "14:00"],
+    "sun": []
+  },
+  "services": [
+    {"id": "drain_cleaning", "name": "drain cleaning", "aliases": ["drain", "clog", "clogged drain", "blocked drain"], "duration_min": 60, "price": "$149 flat"},
+    {"id": "water_heater", "name": "water heater repair", "aliases": ["water heater", "hot water", "no hot water"], "duration_min": 90, "price": "from $199"},
+    {"id": "leak_repair", "name": "leak repair", "aliases": ["leak", "leaking", "dripping pipe", "burst pipe"], "duration_min": 60, "price": "from $129"},
+    {"id": "hvac_tuneup", "name": "HVAC tune-up", "aliases": ["hvac", "furnace", "ac", "air conditioner", "heating", "cooling"], "duration_min": 90, "price": "$89 seasonal"},
+    {"id": "electrical", "name": "electrical service", "aliases": ["electrical", "outlet", "breaker", "wiring", "electrician"], "duration_min": 60, "price": "from $119"}
+  ],
+  "faqs": [
+    {"id": "hours", "patterns": ["hours", "open", "close", "what time"], "answer": "We're open Monday to Friday 8am to 6pm, and Saturday 9am to 2pm. We book emergency visits outside those hours too."},
+    {"id": "service_area", "patterns": ["area", "service area", "do you cover", "do you come to", "location", "where are you"], "answer": "We serve the greater metro area within about a 25-mile radius. If you give me your address I can confirm coverage before booking."},
+    {"id": "pricing", "patterns": ["how much", "cost", "price", "fee", "rate", "charge"], "answer": "Pricing depends on the service. Drain cleaning is $149 flat, leak repair starts at $129, and we can give an exact quote on site. Which service did you need?"},
+    {"id": "payment", "patterns": ["payment", "pay", "card", "cash", "credit", "invoice"], "answer": "We accept all major cards, cash, and check. Payment is collected after the work is completed."},
+    {"id": "warranty", "patterns": ["warranty", "guarantee", "guaranteed"], "answer": "All of our work is backed by a 1-year workmanship warranty."},
+    {"id": "emergency", "patterns": ["emergency", "24/7", "after hours", "tonight"], "answer": "Yes, we handle emergencies. Tell me what's happening and I'll get the earliest available technician to you."}
+  ],
+  "booking_fields": ["service", "address", "contact_name", "contact_phone"],
+  "qualification_fields": ["service", "urgency", "address", "contact_name", "contact_phone"],
+  "escalation": {
+    "keywords": ["gas leak", "smell gas", "flooding", "electrical fire", "sparking", "injury", "hurt", "lawsuit", "refund", "complaint", "manager", "supervisor"],
+    "transfer_number": "+1-555-0100",
+    "callback_prompt": "I'll have a team member call you back. What's the best number and time?"
+  },
+  "out_of_scope_examples": ["weather", "stock", "stocks", "sports", "score", "joke", "recipe", "news", "president", "capital of", "translate", "poem"],
+  "confirmation_script": "Just to confirm: {service} at {address} on {slot}. Shall I book that?",
+  "greeting": "Thanks for calling {business_name}. I can book a visit, reschedule or cancel one, or answer a question. How can I help?"
+}

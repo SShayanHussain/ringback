@@ -1,0 +1,55 @@
+name: CI
+
+# Text-first gate. lint + tests + the regression eval harness must pass. Voice is not in CI
+# (no telephony spend in CI, ever). Deploy is via Vercel/Render git integrations, not SSH.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  agent-and-evals:
+    name: Agent core · tests · regression evals (Phase 3 gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./agent -e ./orchestrator
+          pip install pytest ruff
+      - name: Lint (ruff)
+        run: ruff check agent orchestrator
+      - name: Unit tests (agent + orchestrator)
+        run: |
+          (cd agent && pytest -q)
+          (cd orchestrator && pytest -q)
+      - name: Regression evals — GATE (fails the build below threshold)
+        # Runs key-free (rulebased provider): deterministic, reproducible, $0.
+        run: cd agent && python -m evals.run --ci
+
+  web:
+    name: Web · lint + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install
+        run: npm ci || npm install
+      - name: Lint
+        run: npm run lint --workspace web --if-present
+      - name: Build
+        env:
+          # Standalone build needs placeholder envs to pass validation (PLAYBOOK §6).
+          ORCHESTRATOR_URL: http://localhost:8000
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+        run: npm run build --workspace web --if-present
+
+  # On main: images/deploys are handled by the platform git integrations (Vercel for web,
+  # Render for agent-core + orchestrator). Nothing to SSH. See docs/DEPLOYMENT-FREE-STACK.md.
