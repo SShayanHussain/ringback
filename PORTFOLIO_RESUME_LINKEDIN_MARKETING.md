@@ -172,3 +172,56 @@ If any metric drops below threshold, the PR is blocked. No exceptions.
 Ship with confidence. Gate with evals.
 
 #MachineLearning #CI #Testing #AI #Python #DevOps
+
+---
+
+### Post 5: The Make.com Routing Flow
+
+**Headline:** 🔀 Stop writing custom API glue code. Use a single webhook and a Router instead.
+
+**Body:**
+When building AI agents, connecting to external systems (Calendars, CRMs, Email) usually means writing a lot of brittle integration code. For **Ringback**, I took a different approach.
+
+Instead of writing custom API wrappers, the agent fires a single **HMAC-signed webhook** to Make.com at the end of every call. The magic happens in the Make.com Router module:
+
+Here is the exact flow:
+1️⃣ Agent detects the intent (book, escalate, qualify) and emits an event.
+2️⃣ Make.com receives the webhook and hits a **Router**.
+3️⃣ Branch 1: `booking.created` ➡️ Creates a Google Calendar event & sends a confirmation Gmail.
+4️⃣ Branch 2: `call.escalated` ➡️ Sends an urgent staff alert.
+5️⃣ Branch 3: `lead.qualified` ➡️ Routes to a CRM follow-up queue.
+
+**Why this matters:**
+- 🧩 **Modular:** I can swap Gmail for Outlook or Google Calendar for Calendly in Make.com without touching a single line of Python code.
+- 🚀 **Speed:** The business process glue is visual and instant.
+- 🔒 **Secure:** The webhook is HMAC-signed so only authorized events are processed.
+
+Stop hardcoding integrations. Build a robust webhook seam and let automation tools do the heavy lifting.
+
+#NoCode #Automation #SystemArchitecture #Python #FastAPI #MakeHQ
+
+---
+
+### Post 6: End-to-End Problem Solving for Home Services
+
+**Headline:** 📉 Did you know a missed call in the home services industry often means a lost job tonight? 
+
+**Body:**
+For plumbing, HVAC, and electrical businesses, availability is everything. If a customer calls with a burst pipe and goes to voicemail, they call the next business on Google. A missed call = lost revenue.
+
+I built **Ringback** to solve this exact gap. It's a multi-tenant AI voice agent platform specifically designed for appointment-based businesses.
+
+Here is how it works end-to-end:
+📞 **The Call:** A customer calls at 2 AM. Ringback answers instantly.
+📅 **The Booking:** The agent checks real-time availability via calendar integration and negotiates a time slot.
+✅ **The Confirmation:** It safely asks for confirmation, capturing name, phone, and address. 
+⚡ **The Sync:** A webhook fires to Make.com, instantly syncing the appointment to the business owner's Google Calendar and sending a confirmation email.
+
+And because it's built as a **multi-tenant SaaS**:
+- Every business gets isolated, tenant-scoped data (PostgreSQL + Supabase).
+- Configuration (business hours, services, FAQ) is isolated per workspace.
+- JWT authentication and encrypted credential storage ensure enterprise-grade security.
+
+AI isn't just about chatbots anymore. It's about solving real revenue leaks with fully autonomous, end-to-end workflows.
+
+#SaaS #VoiceAI #Entrepreneurship #SoftwareEngineering #NextJS #FullStack
