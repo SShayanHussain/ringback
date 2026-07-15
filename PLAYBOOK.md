@@ -425,3 +425,96 @@ The status the run is frozen at tells you which side of "claiming the job" broke
 | LLM | — | **Gemini** (embeddings) + **Groq** (generation, `LLM_PROVIDER` switch) |
 | CI/CD | GH Actions → SSH | **GitHub Actions** → Vercel/Render git integrations |
 
+---
+
+## 13. Ringback — text-first voice agent on the free stack
+
+> Stack: Vercel (web) · Render free (agent-core + orchestrator, two services) · Supabase (Postgres,
+> transaction pooler `:6543`) · Make.com (no-code automation) · Groq/Gemini (LLM, swappable) ·
+> GitHub Actions. Voice layer designed but deliberately deferred until text evals are green and
+> spend caps are enforced.
+
+### 13.1 Supabase JSONB auto-deserialization breaks `json.loads()`
+- **Symptom:** `the JSON object must be str, bytes or bytearray, not dict` on any DB read that
+  touches a JSONB column (`payload`, `data`).
+- **Cause:** Supabase's Postgres driver (psycopg with the binary adapter) auto-deserializes JSONB
+  columns into Python dicts. Code that calls `json.loads(row[0])` — which works with local
+  Postgres — blows up because `row[0]` is already a dict.
+- **Fix:** a thin helper that handles both:
+  ```python
+  def _load_json(val):
+      return val if isinstance(val, (dict, list)) else json.loads(val)
+  ```
+  Replace every `json.loads(row[...])` on JSONB reads. This is the Supabase equivalent of the
+  RDS TLS surprise (§2) — works locally, breaks on the managed service.
+
+### 13.2 Make.com Router filter placement — the #1 automation wiring mistake
+- **Symptom:** only the first event type works; all other branches never fire.
+- **Cause:** placing a filter **before** the Router (between Webhook and Router) blocks every event
+  that doesn't match. The Router never sees the event, so its branches can't filter on it.
+- **Fix:** filters go **on each Router branch** (between Router and the downstream module), never
+  before the Router. The Webhook→Router link must be unfiltered.
+- **Corollary:** Make module IDs are auto-assigned. Never manually type a module ID in a formula
+  (e.g. `1.data.booking.start_iso`). Always **pick tokens from the panel** — Make fills in the
+  correct module ID. Manually typed IDs cause `references non-existing module` errors.
+
+### 13.3 Make.com "Run once" vs "ON" — the webhook 410 trap
+- A custom webhook only accepts data when the scenario is either actively running "Run once" or
+  turned **ON**. Outside that window, POSTs get `410 Gone`.
+- **During development:** click "Run once", send the test payload within ~2 min, inspect results.
+- **For production:** toggle the scenario **ON** with schedule set to **Immediately** (not
+  "At regular intervals"). This processes webhooks the instant they arrive.
+
+### 13.4 Gmail self-sending lands in spam
+- Automated emails sent from your Gmail (via Make) **to yourself** trigger spam filters.
+- **Quick fix:** Gmail → Spam → open the email → "Not spam" → create a filter:
+  From: your email, Subject contains your keywords → ✅ "Never send it to Spam".
+- **Proper fix:** use a transactional provider (Resend, Brevo) with SPF/DKIM/DMARC on your
+  sending domain. Gmail + "Not spam" is fine for demo; authenticated domain for real users.
+
+### 13.5 Text-first development — the methodology that de-risks voice
+- The single biggest architectural decision: prove the entire conversation core (intents, tools,
+  guardrails, confirmation, escalation) in **text mode** with a regression eval set before touching
+  voice. Voice = STT (audio→text) → same core → TTS (text→audio). Proving it in text costs nothing.
+- Use a **deterministic rule-based LLM provider** (`LLM_PROVIDER=rulebased`) for tests/CI/evals —
+  key-free, reproducible, zero cost. Real NLU (`groq`/`gemini`) swaps in behind the same interface.
+- **The eval gate:** `python -m evals.run --ci` must pass (100% task success, 0% false-action)
+  before any voice work begins. This is enforced in CI.
+
+### 13.6 Behavioral guardrails must be wired AND tested
+- Writing a guardrail function is not enough — it must be **called in the execution path** and
+  have a test proving it fires. Two examples:
+  - `assert_confirmed(state)` — blocks any write without an explicit confirmation turn. Called at
+    the top of `_execute_pending()`.
+  - `assert_slot_offered(start_iso, offered_slots)` — prevents booking a slot the calendar didn't
+    return. Called before every `create_booking` / `modify_booking`.
+  - Both have dedicated tests (`test_no_write_without_confirmation`, `test_no_fabricated_availability`).
+- **Rule:** after writing any guardrail, `grep` for its call site. No call site = no guardrail.
+
+### 13.7 Webhook payload enrichment — emit useful data, not just IDs
+- Minimal event payloads (just `booking_id`, `service_id`, `start_iso`) make downstream automation
+  useless — Make/n8n can't format a readable email or calendar event.
+- **Fix:** enrich the emitted payload at the source with human-facing fields: `service` (readable
+  name), `start_label` ("Thursday 9:00 AM"), `contact_name`, `contact_phone`, `address`,
+  `notify_email` (owner's email). The downstream tool just maps tokens.
+- **Rule:** the webhook seam should emit **everything the downstream flow needs** to do its job
+  without a callback. The automation tool is glue — it shouldn't need to call your API again.
+
+### 13.8 No-code automation boundary — what belongs in Make/n8n vs code
+- Calendar event creation, confirmation emails, escalation alerts, lead notifications = **linear
+  business-process glue**. This belongs in Make/n8n.
+- Intent detection, guardrails, confirmation protocol, tool use, conversation state = **core agent
+  logic**. This stays hand-coded.
+- The seam: agent core fires a **signed webhook** (`X-Ringback-Signature` HMAC) per event type
+  (`booking.created`, `call.escalated`, `lead.qualified`). Make receives, routes, and acts.
+- Prototype in Make; if the glue ever needs branching complexity or reliability, port that slice
+  into a code worker.
+
+### 13.9 Render free-tier cold start and the UptimeRobot pattern
+- Free Render services spin down after ~15 min idle. First request after idle = 30–60s cold start.
+- Health check timeouts during cold start look like outages but aren't.
+- **Fix:** UptimeRobot (free, 50 monitors) pings `/health` every 5 min. `/health` is DB/LLM-free
+  and answers GET+HEAD, so pinging is free and won't 405.
+- **Budget note:** free Render = ~750 instance-hours/month. Two always-on services ≈ 1460 hrs →
+  over budget. For demo: keep orchestrator always-on, let agent-core cold-start (or upgrade one).
+

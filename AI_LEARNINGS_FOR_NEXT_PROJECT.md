@@ -92,3 +92,28 @@ These four bugs all presented identically ("runs never finish") but at different
 - **Free-tier packing:** Render free = one web service, no worker → **fold ingestion into the API as an in-process background task** (return 200 fast; also avoids the gRPC-in-fork deadlock since there's no fork).
 - **DX:** auto-load a repo-root `.env` (guarded `load_dotenv()` at the TOP of config — before the frozen settings dataclass, whose field defaults read `os.getenv` at import; plus `config({path:"../.env"})` in `drizzle.config.ts`); the root lockfile is authoritative in npm workspaces (CI installs at root, then `--workspace`); authed mutations via **Server Actions** (server-side session), reads via Server Components; **generate + commit** Drizzle migrations and apply them on the `:5432` URL.
 
+---
+
+## 8. Ringback (Text-First Voice Agent) — Deployment & Automation Learnings
+> Stack: Vercel + Render free (two services) + Supabase + Make.com + Groq/Gemini + GitHub Actions. Voice designed but deferred until text evals pass and spend caps are enforced. These bugs showed up during Make.com automation wiring and free-stack deployment.
+
+- **Supabase JSONB auto-deserialization breaks `json.loads()`.** When Supabase's Postgres driver returns JSONB columns, it auto-deserializes them into Python dicts. Code calling `json.loads(row[0])` (which works against local Postgres) throws `"the JSON object must be str, bytes or bytearray, not dict"`. **Rule:** wrap all JSONB reads in a helper: `return val if isinstance(val, (dict, list)) else json.loads(val)`. This is the Supabase equivalent of the RDS TLS surprise (§1) — works locally, breaks on the managed service.
+
+- **Make.com Router filters go ON branches, not before the Router.** Placing a filter between the Webhook and the Router blocks all non-matching events from reaching ANY branch. Only the first event type works; all others silently fail. **Rule:** the Webhook→Router link must be unfiltered. Each branch gets its own filter (e.g., `event == "booking.created"` on the calendar branch, `event == "call.escalated"` on the alert branch).
+
+- **Make.com module IDs are auto-assigned — never type them manually.** Writing `1.data.booking.start_iso` in a formula causes `"references non-existing module [module ID 1]"` if the webhook was assigned a different ID. **Rule:** always pick tokens from the data panel — Make fills in the correct module ID automatically.
+
+- **Make.com custom webhooks only accept data during "Run once" or when ON.** POSTs outside that window return `410 Gone`. During development, click "Run once" and send within ~2 minutes. For production, toggle the scenario ON with schedule set to "Immediately."
+
+- **Gmail self-sending via automation lands in spam.** Automated emails sent from your Gmail (via Make) to the same address trigger spam filters. **Quick fix:** create a Gmail filter (From=self, Subject contains keywords → "Never send to Spam"). **Proper fix:** use a transactional provider (Resend/Brevo) with SPF/DKIM/DMARC on your sending domain.
+
+- **Text-first development de-risks the expensive part.** Prove the entire conversation core (intents, tools, guardrails, confirmation, escalation) in text mode with a regression eval set. Voice = STT→same core→TTS. Proving it in text costs nothing. Use a **deterministic rule-based LLM provider** (`rulebased`) for tests/CI/evals — key-free, reproducible, zero cost. Real NLU swaps in via one env var (`LLM_PROVIDER=groq`).
+
+- **Guardrails must be wired in the execution path AND tested.** Writing `assert_slot_offered()` is useless if it's never called. Both `assert_confirmed(state)` (no write without confirmation) and `assert_slot_offered(start_iso, offered_slots)` (no fabricated availability) are called in `_execute_pending()` and have dedicated tests. **Rule:** after writing any guardrail, `grep` for its call site.
+
+- **Webhook payloads must carry everything downstream needs.** Minimal payloads (just IDs) force Make/n8n to call your API again. Enrich at the source: `service` (readable name), `start_label` ("Thursday 9:00 AM"), `contact_name`, `contact_phone`, `address`, `notify_email`. The automation tool just maps tokens — no callbacks needed.
+
+- **No-code automation boundary:** Calendar/CRM/notification glue belongs in Make/n8n (linear business process). Core agent logic (intents, guardrails, confirmation, tools) stays hand-coded. The seam: agent fires a signed webhook per event type; Make routes and acts. Prototype in Make; port to code if the glue needs branching complexity or reliability.
+
+- **Render free-tier cold start = 30–60s on first request after idle.** Point UptimeRobot at `/health` every 5 min to keep services warm. Budget: two always-on free services exceed the ~750 hr/month limit — keep the orchestrator always-on and let agent-core cold-start, or upgrade one.
+
