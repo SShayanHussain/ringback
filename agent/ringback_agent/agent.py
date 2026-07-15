@@ -122,7 +122,11 @@ class Agent:
                 action["contact_phone"], action.get("address", ""),
             )
             state.record_action({"type": "booking_created", "booking_id": b.id,
-                                 "service_id": b.service_id, "start_iso": b.start_iso})
+                                 "service_id": b.service_id, "service": action["service"],
+                                 "start_iso": b.start_iso, "start_label": action["slot_label"],
+                                 "contact_name": action["contact_name"],
+                                 "contact_phone": action["contact_phone"],
+                                 "address": action.get("address", "")})
             self._crm_log(action["contact_name"], action["contact_phone"],
                           action.get("address", ""), f"Booked {action['service']}", "booked")
             outcome = Outcome.BOOKED.value
@@ -132,12 +136,15 @@ class Agent:
             guardrails.assert_slot_offered(action["start_iso"], state.offered_slots)
             self.calendar.modify_booking(action["booking_id"], action["start_iso"])
             state.record_action({"type": "booking_modified", "booking_id": action["booking_id"],
-                                 "start_iso": action["start_iso"]})
+                                 "service": action["service"], "start_iso": action["start_iso"],
+                                 "start_label": action["slot_label"]})
             outcome = Outcome.RESCHEDULED.value
             reply = f"All set - your {action['service']} is moved to {action['slot_label']}. Anything else?"
         elif atype == "cancel_booking":
             self.calendar.cancel_booking(action["booking_id"])
-            state.record_action({"type": "booking_cancelled", "booking_id": action["booking_id"]})
+            state.record_action({"type": "booking_cancelled", "booking_id": action["booking_id"],
+                                 "service": action.get("service", ""),
+                                 "start_label": action.get("slot_label", "")})
             outcome = Outcome.CANCELLED.value
             reply = f"Your {action['service']} on {action['slot_label']} is cancelled. Anything else?"
         else:

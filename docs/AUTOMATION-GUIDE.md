@@ -44,25 +44,39 @@ before doing any side effect. Make every downstream write idempotent (e.g., upse
 
 ## 2. Events & payloads
 
+Every `data` block carries these top-level fields: `workspace_id`, **`notify_email`** (the owner's
+configured/ signup address — map this to the Gmail "To"), `session_id`, `intent`, `outcome`.
+
 ### `booking.created`
 ```json
-{ "workspace_id": "ws_...", "session_id": "web",
+{ "workspace_id": "ws_...", "notify_email": "owner@business.com", "session_id": "web",
+  "intent": "book", "outcome": "booked",
   "booking": { "type": "booking_created", "booking_id": "bk_0001",
-               "service_id": "drain_cleaning", "start_iso": "2026-07-14T09:00" },
+               "service_id": "drain_cleaning", "service": "Drain cleaning",
+               "start_iso": "2026-07-16T09:00", "start_label": "Thursday 9:00 AM",
+               "contact_name": "John Smith", "contact_phone": "5551234567",
+               "address": "12 Oak Street" },
   "transcript": [ { "role": "user", "text": "..." }, { "role": "agent", "text": "..." } ] }
 ```
+Use `booking.contact_*` / `booking.address` for the calendar event details; `notify_email` is the
+BUSINESS OWNER (who wants to know a booking landed). To also email the CALLER you'd capture their
+email as a slot — today we capture name + phone only (phone → SMS is the caller channel).
+
 ### `booking.rescheduled` · `booking.cancelled`
-Same shape; `booking.type` = `booking_modified` / `booking_cancelled`.
+Same shape; `booking.type` = `booking_modified` / `booking_cancelled` (both carry `service` +
+`start_label`; rescheduled also carries the new `start_iso`).
 ### `call.escalated`
 ```json
-{ "workspace_id": "ws_...", "session_id": "web",
+{ "workspace_id": "ws_...", "notify_email": "owner@business.com", "session_id": "web",
+  "intent": "book", "outcome": "escalated",
   "escalation": { "type": "escalation", "reason": "high-risk request (matched 'gas leak')",
                   "mode": "transfer" },
   "transcript": [ ... ] }
 ```
 ### `lead.qualified`
 ```json
-{ "workspace_id": "ws_...", "session_id": "web", "outcome": "qualified", "transcript": [ ... ] }
+{ "workspace_id": "ws_...", "notify_email": "owner@business.com", "session_id": "web",
+  "intent": "qualify", "outcome": "qualified", "transcript": [ ... ] }
 ```
 
 ---

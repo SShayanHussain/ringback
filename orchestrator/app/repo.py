@@ -22,6 +22,7 @@ class Repo(Protocol):
     def create_user(self, workspace_id: str, email: str, password_hash: str, role: str) -> dict: ...
     def get_user_by_email(self, email: str) -> dict | None: ...
     def get_user(self, user_id: str) -> dict | None: ...
+    def get_workspace_owner_email(self, workspace_id: str) -> str | None: ...
     def insert_call(self, workspace_id: str, call: dict) -> str: ...
     def list_calls(self, workspace_id: str, limit: int = 100) -> list[dict]: ...
     def get_call(self, workspace_id: str, call_id: str) -> dict | None: ...
@@ -56,6 +57,13 @@ class InMemoryRepo:
 
     def get_user(self, user_id) -> dict | None:
         return self.users.get(user_id)
+
+    def get_workspace_owner_email(self, workspace_id) -> str | None:
+        members = [u for u in self.users.values() if u["workspace_id"] == workspace_id]
+        if not members:
+            return None
+        owner = next((u for u in members if u["role"] == "owner"), members[0])
+        return owner["email"]
 
     def insert_call(self, workspace_id, call) -> str:
         cid = _uid("call")
@@ -118,6 +126,15 @@ class PgRepo:
                 (user_id,),
             ).fetchone()
         return _user_row(row)
+
+    def get_workspace_owner_email(self, workspace_id) -> str | None:
+        with connection() as c:
+            row = c.execute(
+                "SELECT email FROM users WHERE workspace_id=%s "
+                "ORDER BY (role='owner') DESC, created_at ASC LIMIT 1",
+                (workspace_id,),
+            ).fetchone()
+        return row[0] if row else None
 
     def insert_call(self, workspace_id, call) -> str:
         cid = _uid("call")

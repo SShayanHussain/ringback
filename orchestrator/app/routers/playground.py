@@ -36,7 +36,13 @@ def chat(body: ChatIn, workspace: str = Depends(current_workspace)):
 
 
 def _notify(workspace: str, meta: dict, call_log: dict) -> None:
-    base = {"workspace_id": workspace, "session_id": call_log.get("session_id"),
+    repo = get_repo()
+    # Where booking/escalation notifications should land: the owner-configured address if set,
+    # else the workspace owner's signup email. Make maps this to the Gmail "To" field.
+    cfg = repo.get_config(workspace)
+    notify_email = cfg.get("notify_email") or repo.get_workspace_owner_email(workspace)
+    base = {"workspace_id": workspace, "notify_email": notify_email,
+            "session_id": call_log.get("session_id"),
             "intent": meta.get("intent"), "outcome": meta.get("outcome")}
     for action in meta.get("actions", []):
         t = action.get("type")
