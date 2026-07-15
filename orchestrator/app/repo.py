@@ -13,6 +13,12 @@ from .config import get_settings
 from .db import connection
 
 
+def _load_json(val):
+    """Safely load a JSONB value — Supabase's driver auto-deserializes to dict,
+    local psycopg returns a string. Handle both."""
+    return val if isinstance(val, (dict, list)) else json.loads(val)
+
+
 def _uid(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
@@ -153,7 +159,7 @@ class PgRepo:
                 "SELECT payload FROM calls WHERE workspace_id=%s ORDER BY created_at DESC LIMIT %s",
                 (workspace_id, limit),
             ).fetchall()
-        return [json.loads(r[0]) for r in rows]
+        return [_load_json(r[0]) for r in rows]
 
     def get_call(self, workspace_id, call_id) -> dict | None:
         with connection() as c:
@@ -161,12 +167,12 @@ class PgRepo:
                 "SELECT payload FROM calls WHERE id=%s AND workspace_id=%s",  # tenant scope
                 (call_id, workspace_id),
             ).fetchone()
-        return json.loads(row[0]) if row else None
+        return _load_json(row[0]) if row else None
 
     def get_config(self, workspace_id) -> dict:
         with connection() as c:
             row = c.execute("SELECT data FROM configs WHERE workspace_id=%s", (workspace_id,)).fetchone()
-        return json.loads(row[0]) if row else {}
+        return _load_json(row[0]) if row else {}
 
     def set_config(self, workspace_id, config) -> None:
         with connection() as c:
